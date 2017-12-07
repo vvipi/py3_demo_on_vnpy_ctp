@@ -42,8 +42,8 @@ class MainEngine:
     #----------------------------------------------------------------------
     def __init__(self):
         """Constructor"""
-        self.userID = '076586'          # 账号
-        self.password = '123321'        # 密码
+        self.userID = ''          # 账号
+        self.password = ''        # 密码
         self.brokerID = '9999'        # 经纪商代码
         self.MdIp = 'tcp://180.168.146.187:10011'         # 行情服务器地址
         self.TdIp = 'tcp://180.168.146.187:10001'         # 交易服务器地址
