@@ -748,11 +748,7 @@ class CtpTdApi(TdApi):
     def onRtnTrade(self, data):
         """成交回报"""
         #读取合约名称
-        try:
-            InstrumentName = self.symbolNameDict[data['InstrumentID']]
-        except:
-            InstrumentName = PRODUCT_UNKNOWN
-        data['InstrumentName'] = InstrumentName
+        data['InstrumentName'] = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
         # 方向
         data['Direction'] = directionMapReverse.get(data['Direction'], '')
             
