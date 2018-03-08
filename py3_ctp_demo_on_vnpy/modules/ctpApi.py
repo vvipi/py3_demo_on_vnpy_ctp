@@ -2,17 +2,18 @@
 """
 CTP的底层接口来自VNPY,大佬bigtan帮助编译的python3版本
 """
-from py_ctp.vnctpmd import MdApi
-from py_ctp.vnctptd import TdApi
-from py_ctp.eventEngine import  *
-from py_ctp.eventType import  *
-from py_ctp.ctp_data_type import *
-from py_ctp.constant import *
+from modules.vnctpmd import MdApi
+from modules.vnctptd import TdApi
+from modules.eventEngine import *
+from modules.eventType import *
+from modules.ctpDataType import *
+from modules.objects import *
+
 from time import sleep
-from datetime import datetime
+from datetime import datetime, time
 import random
 import os
-# from copy import copy
+from copy import copy
 
 # 以下为一些VT类型和CTP类型的映射字典
 # 价格类型映射
@@ -90,7 +91,8 @@ class CtpMdApi(MdApi):
         self.connectionStatus = False       # 连接状态
         self.loginStatus = False            # 登录状态
         
-        self.subscribedSymbols = set()      # 已订阅合约代码        
+        self.subscribedSymbols = set()      # 已订阅合约代码       
+        self.TradingDay = ''
         
         self.userID = ''          # 账号
         self.password = ''        # 密码
@@ -124,8 +126,10 @@ class CtpMdApi(MdApi):
         log = u'行情服务器连接断开'
         self.put_log_event(log)
         
-        alarm = '行情服务器断开连接'
-        self.put_alarm_event(alarm)
+        now = datetime.now().time()
+        if time(8, 48) < now < time(15, 30) or time(20, 48) < now <= time(23, 59) or time(0, 0) < now < time(2, 31):
+            alarm = '行情服务器断开连接'
+            self.put_alarm_event(alarm)
     #----------------------------------------------------------------------  
     def login(self):
         """登录"""
@@ -179,18 +183,19 @@ class CtpMdApi(MdApi):
         
         tick.symbol = data['InstrumentID']
         tick.exchange = data['ExchangeID']   #exchangeMapReverse.get(data['ExchangeID'], u'未知')
-        tick.vtSymbol = tick.symbol #'.'.join([tick.symbol, EXCHANGE_UNKNOWN])
+        tick.vtSymbol = tick.symbol #'.'.join([tick.symbol, EXCHANGE_UNKNOWN]) # 只用到ctp一个接口，这里没有必要区分
         
         tick.lastPrice = data['LastPrice']
         tick.volume = data['Volume']
         tick.openInterest = data['OpenInterest']
         
 
-        tick.time = '.'.join([data['UpdateTime'], str(data['UpdateMillisec']/100)])
+        tick.time = '.'.join([data['UpdateTime'], str(int(data['UpdateMillisec']/100))])
         # 不带毫秒的时间，方便转换datetime
         tick.time2 = data['UpdateTime'] 
         # 把交易日也保存下来，转换datetime用  
-        tick.tradedate = data['TradingDay']       
+        tick.tradedate = self.TradingDay
+        # print('tick.tradedate:%s'%tick.tradedate)
         
         # 这里由于交易所夜盘时段的交易日数据有误，所以选择本地获取
         tick.date = datetime.now().strftime('%Y%m%d')   
@@ -204,12 +209,11 @@ class CtpMdApi(MdApi):
         tick.lowerLimit = data['LowerLimitPrice']
         
         # CTP只有一档行情
-        # 无报价时用涨跌停板价替换,如果认为不妥自行修改
+        # 无报价时用涨跌停板价替换
         if data['BidPrice1'] > tick.upperLimit:
             tick.bidPrice1 = tick.lowerLimit
         else:
             tick.bidPrice1 = data['BidPrice1']
-
         if data['AskPrice1'] > tick.upperLimit:
             tick.askPrice1 = tick.upperLimit
         else:
@@ -221,6 +225,10 @@ class CtpMdApi(MdApi):
         event1 = Event(type_=(EVENT_TICK + data['InstrumentID']))
         event1.dict_['data'] = tick
         self.__eventEngine.put(event1)
+
+        event2 = Event(type_=(EVENT_TICK))
+        event2.dict_['data'] = tick
+        self.__eventEngine.put(event2)
         
     def subscribe(self, symbol):
         """订阅合约"""
@@ -293,12 +301,12 @@ class CtpTdApi(TdApi):
     """CTP交易API实现"""
     
     #----------------------------------------------------------------------
-    def __init__(self, mainEngine, eventEngine):
+    def __init__(self, riskengine, eventEngine):
         """API对象的初始化函数"""
         super(CtpTdApi, self).__init__()
         
         self.__eventEngine = eventEngine
-        self.__mainEngine = mainEngine
+        self.__riskengine = riskengine  # 风控引擎
 
         self.reqID = 0              # 操作请求编号
         self.orderRef = random.randrange(start=1000,stop=9000,step=random.randint(10,100)  )           # 订单编号
@@ -314,14 +322,15 @@ class CtpTdApi(TdApi):
         
         self.frontID = 0            # 前置机编号
         self.sessionID = 0          # 会话编号
-        
-        self.posBufferDict = {}             # 缓存持仓数据的字典
+
+        self.posDict = {}                   # 持仓缓存
+        # self.posBufferDict = {}             # 缓存持仓数据的字典
         self.symbolExchangeDict = {}        # 保存合约代码和交易所的映射关系
         self.symbolSizeDict = {}            # 保存合约代码和合约大小的映射关系
         self.symbolNameDict = {}        # 保存合约代码和合约名称的映射关系
         
     #----------------------------------------------------------------------
-    def put_log_event(self, log):  # log事件投放
+    def put_log_event(self, log):  # 投放log事件
         event = Event(type_=EVENT_LOG)
         event.dict_['log'] = log
         self.__eventEngine.put(event)
@@ -329,8 +338,10 @@ class CtpTdApi(TdApi):
     def onFrontConnected(self):
         """服务器连接"""
         self.connectionStatus = True
+    
         log = u'交易服务器连接成功'
         self.put_log_event(log)
+    
         self.login()
 
     #----------------------------------------------------------------------
@@ -439,32 +450,42 @@ class CtpTdApi(TdApi):
         self.reqID += 1
         req = {}
         self.reqQryInstrument(req, self.reqID)
+
+    def qryMarketData(self):
+        """查询合约截面数据"""
+        self.reqID += 1
+        req = {}
+        self.reqQryDepthMarketData(req, self.reqID)  # 查询合约截面数据        
     #----------------------------------------------------------------------
     def sendOrder(self, orderReq):
         """发单"""
         self.reqID += 1
         self.orderRef += 1
         
-        #不发单实盘测试
+        #风控检查
+        if not self.__riskengine.checkRisk(orderReq):
+            return
+            
+        # # 不发单实盘测试
         # log = '接收到委托指令，未发出'
         # self.put_log_event(log)
         # return    
             
         req = {}
         
-        req['InstrumentID'] = orderReq.symbol
-        req['LimitPrice'] = orderReq.price
-        req['VolumeTotalOriginal'] = orderReq.volume
+        req['InstrumentID'] = orderReq.symbol # 合约代码
+        req['LimitPrice'] = orderReq.price # 价格
+        req['VolumeTotalOriginal'] = orderReq.volume # 数量
         
         # 下面如果由于传入的类型本接口不支持，则会返回空字符串
-        req['OrderPriceType'] = priceTypeMap.get(orderReq.priceType, '')
-        req['Direction'] = directionMap.get(orderReq.direction, '')
-        req['CombOffsetFlag'] = offsetMap.get(orderReq.offset, '')
+        req['OrderPriceType'] = priceTypeMap.get(orderReq.priceType, '') # 价格类型
+        req['Direction'] = directionMap.get(orderReq.direction, '') # 方向
+        req['CombOffsetFlag'] = offsetMap.get(orderReq.offset, '') # 组合标志
             
-        req['OrderRef'] = str(self.orderRef)
-        req['InvestorID'] = self.userID
-        req['UserID'] = self.userID
-        req['BrokerID'] = self.brokerID
+        req['OrderRef'] = str(self.orderRef) # 报单引用
+        req['InvestorID'] = self.userID # 投资者代码
+        req['UserID'] = self.userID # 账号
+        req['BrokerID'] = self.brokerID # 经纪商代码
         
         req['CombHedgeFlag'] = defineDict['THOST_FTDC_HF_Speculation']       # 投机单
         req['ContingentCondition'] = defineDict['THOST_FTDC_CC_Immediately'] # 立即发单
@@ -487,7 +508,7 @@ class CtpTdApi(TdApi):
         self.reqOrderInsert(req, self.reqID)
         
         # 返回订单号（字符串），便于某些算法进行动态管理
-        return str(self.orderRef)
+        return '.'.join(["CTP", str(self.orderRef)])
     #----------------------------------------------------------------------
     def buy(self, symbol, price, vol):  # 多开
         orderReq = CtaOrderReq()
@@ -499,7 +520,7 @@ class CtpTdApi(TdApi):
         orderReq.direction = DIRECTION_LONG           # 买卖
         orderReq.offset = OFFSET_OPEN              # 开平
         
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
 
     def sell(self, symbol, price, vol):  # 多平
         orderReq = CtaOrderReq()
@@ -511,7 +532,7 @@ class CtpTdApi(TdApi):
         orderReq.direction = DIRECTION_SHORT           # 买卖
         orderReq.offset = OFFSET_CLOSE              # 开平
 
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
         
     def selltoday(self, symbol, price, vol):  # 多头平今
         orderReq = CtaOrderReq()
@@ -523,7 +544,7 @@ class CtpTdApi(TdApi):
         orderReq.direction = DIRECTION_SHORT           # 买卖
         orderReq.offset = OFFSET_CLOSETODAY              # 开平
 
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
 
     def short(self, symbol, price, vol):  # 空开
         orderReq = CtaOrderReq()
@@ -535,7 +556,7 @@ class CtpTdApi(TdApi):
         orderReq.direction = DIRECTION_SHORT           # 买卖
         orderReq.offset = OFFSET_OPEN              # 开平
         
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
 
     def cover(self, symbol, price, vol):  # 空平
         orderReq = CtaOrderReq()
@@ -543,11 +564,11 @@ class CtpTdApi(TdApi):
         orderReq.price = price                # 价格
         orderReq.volume = vol                 # 数量
     
-        orderReq.priceType = PRICETYPE_LIMITPRICE           # 价格类型
-        orderReq.direction = DIRECTION_LONG           # 买卖
-        orderReq.offset = OFFSET_CLOSE              # 开平
+        orderReq.priceType = PRICETYPE_LIMITPRICE       # 价格类型
+        orderReq.direction = DIRECTION_LONG             # 买卖
+        orderReq.offset = OFFSET_CLOSE                  # 开平
 
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
 
     def covertoday(self, symbol, price, vol):  # 空头平今
         orderReq = CtaOrderReq()
@@ -555,11 +576,11 @@ class CtpTdApi(TdApi):
         orderReq.price = price                # 价格
         orderReq.volume = vol                 # 数量
     
-        orderReq.priceType = PRICETYPE_LIMITPRICE           # 价格类型
-        orderReq.direction = DIRECTION_LONG           # 买卖
-        orderReq.offset = OFFSET_CLOSETODAY              # 开平
+        orderReq.priceType = PRICETYPE_LIMITPRICE       # 价格类型
+        orderReq.direction = DIRECTION_LONG             # 买卖
+        orderReq.offset = OFFSET_CLOSETODAY             # 开平
 
-        self.sendOrder(orderReq)
+        return self.sendOrder(orderReq)
     #----------------------------------------------------------------------
     def cancelOrder(self, cancelOrderReq):
         """撤单"""
@@ -571,7 +592,7 @@ class CtpTdApi(TdApi):
         # req['OrderRef'] = cancelOrderReq.orderID
         # req['FrontID'] = cancelOrderReq.frontID
         # req['SessionID'] = cancelOrderReq.sessionID
-        # ctp撤单字段有两种，其中一种没试成功，这里用ExchangeID和OrderSysID的组合
+        # 撤单有两种字段组合，其中一种没试成功
         req['ExchangeID'] = cancelOrderReq.exchange
         req['OrderSysID'] = cancelOrderReq.OrderSysID
         
@@ -605,20 +626,20 @@ class CtpTdApi(TdApi):
         （由于耗时过长目前使用其他进程读取）
         """
         if error['ErrorID'] == 0:
-            # 缓存代码和交易所的映射关系
-            self.symbolExchangeDict[data['InstrumentID']] = data['ExchangeID']
-            self.symbolSizeDict[data['InstrumentID']] = data['VolumeMultiple']
-            self.symbolNameDict[data['InstrumentID']] = data['InstrumentName']
+            self.symbolExchangeDict[data['InstrumentID']] = data['ExchangeID'] # 合约代码和交易所的映射关系
+            self.symbolSizeDict[data['InstrumentID']] = data['VolumeMultiple'] # 合约代码和合约乘数映射关系
+            self.symbolNameDict[data['InstrumentID']] = data['InstrumentName'] # 合约代码和合约名称映射关系
 
             event = Event(type_=EVENT_INSTRUMENT)
             event.dict_['data'] = data
             event.dict_['last'] = last
             self.__eventEngine.put(event)
             
-            if last == True:
+            if last:
                 sleep(1)
                 self.reqID += 1
                 self.reqQryDepthMarketData({}, self.reqID)  # 查询合约截面数据
+                
         else:
             log = '合约投资者回报，错误代码：' + str(error['ErrorID']) + ',   错误信息：' + str(error['ErrorMsg'])
             self.put_log_event(log)
@@ -629,23 +650,86 @@ class CtpTdApi(TdApi):
         if not data['InstrumentID']:
             return
         if error['ErrorID'] == 0:
-            # 读取交易所id\合约名称\合约乘数
-            data['ExchangeID'] = self.symbolExchangeDict.get(data['InstrumentID'], EXCHANGE_UNKNOWN)
+            # 读取交易所id|合约名称|方向|合约乘数
+            ExchangeID = data['ExchangeID'] = self.symbolExchangeDict.get(data['InstrumentID'], EXCHANGE_UNKNOWN)
             data['InstrumentName'] = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
-            # 读取不到的先按1计算，持仓中的开仓均价会显示错误的数字，但程序不会崩溃，如果有方案请自行解决
+            data['PosiDirection'] = posiDirectionMapReverse.get(data['PosiDirection'], '')
+            # 读取不到的先按1计算，持仓中的开仓均价虽然会显示错误的数字，但程序不会崩溃
             data['VolumeMultiple'] = self.symbolSizeDict.get(data['InstrumentID'], 1)
-            # 组合持仓的合约乘数为0，会导致除数为零错误，暂且修改为1，如果有方案请自行解决
+            # 组合持仓的合约乘数为0，会导致除数为零的错误，暂且修改为1
             if data['VolumeMultiple'] == 0:
                 data['VolumeMultiple'] = 1
-            
-            data['PosiDirection'] = posiDirectionMapReverse.get(data['PosiDirection'], '')
             
             event = Event(type_=EVENT_POSITION)
             event.dict_['data'] = data
             event.dict_['last'] = last
             self.__eventEngine.put(event)
+
+            # 获取持仓缓存对象
+            posName = '.'.join([data['InstrumentID'], data['PosiDirection']])
+
+            if posName in self.posDict:
+                pos = self.posDict[posName]
+            else:
+                pos = CtaPositionData()
+                self.posDict[posName] = pos
+                
+                pos.gatewayName = 'CTP'
+                pos.symbol = data['InstrumentID']
+                pos.vtSymbol = pos.symbol
+                pos.direction = data['PosiDirection']
+                pos.vtPositionName = '.'.join([pos.vtSymbol, pos.direction]) 
+                pos.name = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
+            
+            # 针对上期所持仓的今昨分条返回（有昨仓、无今仓），读取昨仓数据.其他交易所只有一条，直接读取
+            if (data['YdPosition'] and not data['TodayPosition']) and ExchangeID == EXCHANGE_SHFE:
+                pos.ydPosition = data['Position']
+            if ExchangeID != EXCHANGE_SHFE:
+                pos.ydPosition = data['YdPosition']
+                
+            # 计算成本
+            size = self.symbolSizeDict[pos.symbol]
+            cost = pos.price * pos.position * size
+            openCost = pos.openPrice * pos.position * size
+            
+            # 汇总总仓
+            pos.position += data['Position']
+            pos.positionProfit += data['PositionProfit']
+            # 计算开仓盈亏（浮）
+            sign = 1 if pos.direction == DIRECTION_LONG else -1
+            op = data["PositionProfit"] + (data["PositionCost"] - data["OpenCost"]) * sign
+            pos.openProfit += op
+            
+            # 计算持仓均价和开仓均价
+            if pos.position and size:    
+                pos.price = (cost + data['PositionCost']) / (pos.position * size)
+                pos.openPrice = (openCost + data["OpenCost"]) / (pos.position * size)
+            
+            # 读取冻结
+            if pos.direction == DIRECTION_LONG: 
+                pos.frozen += data['LongFrozen']
+            else:
+                pos.frozen += data['ShortFrozen']
+            
+            # 查询回报结束
+            if last:
+                # 遍历推送
+                i = 0
+                for pos in self.posDict.values():
+                    # vnpy格式持仓事件
+                    i += 1
+                    lastPos = True if i >= len(self.posDict) else False
+
+                    event2 = Event(type_=EVENT_VNPOSITION)
+                    event2.dict_['data'] = pos
+                    event2.dict_['last'] = lastPos
+                    self.__eventEngine.put(event2)
+                
+                # 清空缓存
+                self.posDict.clear()
+
         else:
-            log = ('持仓查询回报，错误代码：'  +str(error['ErrorID']) + ',   错误信息：' +str(error['ErrorMsg']))
+            log = ('持仓查询回报，错误代码：'  + str(error['ErrorID']) + ',   错误信息：' +str(error['ErrorMsg']))
             self.put_log_event(log)
 
     #----------------------------------------------------------------------
@@ -692,14 +776,12 @@ class CtpTdApi(TdApi):
         newref = data['OrderRef']
         self.orderRef = max(self.orderRef, int(newref))
         
-        # 读取合约名称
+        # 合约名称
         data['InstrumentName'] = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
         # 方向
         data['Direction'] = directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN)
-            
         # 开平
         data['CombOffsetFlag'] = offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN)
-            
         # 状态
         data['OrderStatus'] = statusMapReverse.get(data['OrderStatus'], STATUS_UNKNOWN)
         
@@ -707,58 +789,94 @@ class CtpTdApi(TdApi):
         event1 = Event(type_=EVENT_ORDER)
         event1.dict_['data'] = data
         self.__eventEngine.put(event1)
-        # #特定合约报单事件
+        # # 特定合约报单事件
         # event2 = Event(type_=EVENT_ORDER+data['InstrumentID'])  
         # event2.dict_['data'] = data
         # self.__eventEngine.put(event2)
         # 创建报单数据对象
-        # order = CtaOrderData()
-        # order.gatewayName = 'CTP'
+        order = CtaOrderData()
+        order.gatewayName = 'CTP'
         
         # # 保存代码和报单号
-        # order.symbol = data['InstrumentID']
-        # order.exchange = exchangeMapReverse[data['ExchangeID']]
-        # order.vtSymbol = '.'.join([order.symbol, order.exchange])
+        order.symbol = data['InstrumentID']
+        order.exchange = exchangeMapReverse[data['ExchangeID']]
+        order.vtSymbol = '.'.join([order.symbol, order.exchange])
         
-        # order.orderID = data['OrderRef']
+        # 报单号
+        order.orderID = data['OrderRef']
         # # CTP的报单号一致性维护需要基于frontID, sessionID, orderID三个字段
         # # 但在本接口设计中，已经考虑了CTP的OrderRef的自增性，避免重复
         # # 唯一可能出现OrderRef重复的情况是多处登录并在非常接近的时间内（几乎同时发单）
         # # 考虑到VtTrader的应用场景，认为以上情况不会构成问题
-        # order.vtOrderID = '.'.join([order.gatewayName, order.orderID])        
+        order.vtOrderID = '.'.join([order.gatewayName, order.orderID])        
         
+        order.direction = data['Direction']
+        order.offset = data['CombOffsetFlag']
+        order.status = data['OrderStatus']
         # order.direction = directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN)
         # order.offset = offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN)
         # order.status = statusMapReverse.get(data['OrderStatus'], STATUS_UNKNOWN)            
             
         # # 价格、报单量等数值
-        # order.price = data['LimitPrice']
-        # order.totalVolume = data['VolumeTotalOriginal']
-        # order.tradedVolume = data['VolumeTraded']
-        # order.orderTime = data['InsertTime']
-        # order.cancelTime = data['CancelTime']
-        # order.frontID = data['FrontID']
-        # order.sessionID = data['SessionID']
+        order.price = data['LimitPrice']
+        order.totalVolume = data['VolumeTotalOriginal']
+        order.tradedVolume = data['VolumeTraded']
+        order.orderTime = data['InsertTime']
+        order.cancelTime = data['CancelTime']
+        order.frontID = data['FrontID']
+        order.sessionID = data['SessionID']
         # # vnpy格式报单事件
-        # event2 = Event(type_=EVENT_TRORDER)
-        # event2.dict_['data'] = order
-        # self.__eventEngine.put(event2)
+        event2 = Event(type_=EVENT_VNORDER)
+        event2.dict_['data'] = order
+        self.__eventEngine.put(event2)
         
     #----------------------------------------------------------------------
     def onRtnTrade(self, data):
         """成交回报"""
-        #读取合约名称
+        # 合约名称
         data['InstrumentName'] = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
+        
         # 方向
         data['Direction'] = directionMapReverse.get(data['Direction'], '')
             
         # 开平
         data['OffsetFlag'] = offsetMapReverse.get(data['OffsetFlag'], '')
         
-        event = Event(type_=EVENT_TRADE)
-        event.dict_['data'] = data
-        self.__eventEngine.put(event)
+        event1 = Event(type_=EVENT_TRADE)
+        event1.dict_['data'] = data
+        self.__eventEngine.put(event1)
+
+        # 创建报单数据对象
+        trade = CtaTradeData()
+        trade.gatewayName = "CTP"
         
+        # 保存代码和报单号
+        trade.symbol = data['InstrumentID']
+        trade.exchange = exchangeMapReverse[data['ExchangeID']]
+        trade.vtSymbol = trade.symbol #'.'.join([trade.symbol, trade.exchange])
+        
+        # 成交号
+        trade.tradeID = data['TradeID']
+        trade.vtTradeID = '.'.join([trade.gatewayName, trade.tradeID])
+        
+        # 报单号
+        trade.orderID = data['OrderRef']
+        trade.vtOrderID = '.'.join([trade.gatewayName, trade.orderID])  
+        # 方向
+        trade.direction = data['Direction'] # directionMapReverse.get(data['Direction'], '')
+            
+        # 开平
+        trade.offset = data['OffsetFlag'] # offsetMapReverse.get(data['OffsetFlag'], '')
+            
+        # 价格、报单量等数值
+        trade.price = data['Price']
+        trade.volume = data['Volume']
+        trade.tradeTime = data['TradeTime']
+        
+        # vn格式成交推送
+        event2 = Event(type_=EVENT_VNTRADE)
+        event2.dict_['data'] = trade
+        self.__eventEngine.put(event2)
     #----------------------------------------------------------------------
     def onErrRtnOrderInsert(self, data, error):
         """发单错误回报（交易所）"""

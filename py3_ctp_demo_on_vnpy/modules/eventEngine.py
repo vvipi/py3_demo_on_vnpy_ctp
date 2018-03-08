@@ -1,15 +1,14 @@
 # encoding: UTF-8
-
+'''
+VNPY的事件引擎原有两版，一个用QTimer计时，一个用子线程计时
+这里选择了子线程的版本
+'''
 # 系统模块
 from queue import Queue, Empty
 from threading import Thread
 from collections import defaultdict
 from time import sleep
-# 第三方模块
-#from PyQt4.QtCore import QTimer
 
-# 自己开发的模块
-#from eventType import *
 EVENT_TIMER = 'eTimer'   
 
 ########################################################################
@@ -163,24 +162,19 @@ class Event:
 
 
 #----------------------------------------------------------------------
-def test():
-    """测试函数"""
-    # import sys
-    from datetime import datetime
-#    from PyQt4.QtCore import QCoreApplication
-    
-    def simpletest(event):
-        print(u'处理每秒触发的计时器事件：%s' % str(datetime.now()))
-    
-#    app = QCoreApplication(sys.argv)
-    
-    ee = EventEngine()
-    ee.register(EVENT_TIMER, simpletest)
-    ee.start()
-    
-#    app.exec_()
-    
+
     
 # 直接运行脚本可以进行测试
 if __name__ == '__main__':
+    def test():
+        """测试函数"""
+        from datetime import datetime
+        
+        def simpletest(event):
+            print(u'处理每秒触发的计时器事件：%s' % str(datetime.now()))
+        
+        
+        ee = EventEngine()
+        ee.register(EVENT_TIMER, simpletest)
+        ee.start()
     test()
