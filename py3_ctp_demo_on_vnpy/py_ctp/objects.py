@@ -3,6 +3,9 @@
 """
 从vnpy搬运过来的各种对象，部分有略改
 """
+
+from py_ctp.constant import *
+
 class CtaTickData(object):
     """Tick数据"""
 
@@ -159,8 +162,7 @@ class CtaPositionData(object):
     #----------------------------------------------------------------------
     def __init__(self):
         """Constructor"""
-        super(CtaPositionData, self).__init__()
-        
+        self.gatewayName = EMPTY_STRING         # Gateway名称      
         # 代码编号相关
         self.symbol = EMPTY_STRING              # 合约代码
         self.exchange = EMPTY_STRING            # 交易所代码
@@ -172,11 +174,13 @@ class CtaPositionData(object):
         self.frozen = EMPTY_INT                 # 冻结数量
         self.price = EMPTY_FLOAT                # 持仓均价
         self.vtPositionName = EMPTY_STRING      # 持仓在vt系统中的唯一代码，通常是vtSymbol.方向
-        
-        # 20151020添加
         self.ydPosition = EMPTY_INT             # 昨持仓
+        self.positionProfit = EMPTY_FLOAT       # 持仓盈亏（盯）
 
-
+        # 自行添加
+        self.openPrice = EMPTY_FLOAT            # 开仓均价
+        self.openProfit = EMPTY_FLOAT           # 开仓盈亏（浮）
+        self.name = EMPTY_STRING                # 合约名称
 ########################################################################
 class CtaAccountData(object):
     """账户数据类"""

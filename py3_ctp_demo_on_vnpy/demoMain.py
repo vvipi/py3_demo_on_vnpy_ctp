@@ -175,22 +175,22 @@ class MainEngine:
         self.td.qryPosition()        
     # ----------------------------------------------------------------------
     def buy(self, symbol, price, vol):  # 买开多开
-        self.td.buy(symbol, price, vol)
+        return self.td.buy(symbol, price, vol)
 
     def sell(self, symbol, price, vol):  # 多平
-        self.td.sell(symbol, price, vol)
+        return self.td.sell(symbol, price, vol)
 
     def selltoday(self, symbol, price, vol):  # 多平今
-        self.td.selltoday(symbol, price, vol)
+        return self.td.selltoday(symbol, price, vol)
 
     def short(self, symbol, price, vol):  # 空开
-        self.td.short(symbol, price, vol)
+        return self.td.short(symbol, price, vol)
 
     def cover(self, symbol, price, vol):  # 空平
-        self.td.cover(symbol, price, vol)
+        return self.td.cover(symbol, price, vol)
 
     def covertoday(self, symbol, price, vol):  # 空平今
-        self.td.covertoday(symbol, price, vol)
+        return self.td.covertoday(symbol, price, vol)
     # ----------------------------------------------------------------------
     def cancelOrder(self, req):#撤单
         self.td.cancelOrder(req)        

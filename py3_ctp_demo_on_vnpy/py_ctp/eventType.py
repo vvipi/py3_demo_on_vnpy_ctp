@@ -10,9 +10,9 @@
 
 
 EVENT_TIMER = 'eTimer'                  # 计时器事件，每隔1秒发送一次
-EVENT_LOG = 'eLog'                        #日志事件
+EVENT_LOG = 'eLog'                      # 日志事件
 EVENT_INSTRUMENT = 'eInstrument'        # 合约事件
-EVENT_MARKETDATA = 'eMarketData'          # 常规行情事件
+EVENT_MARKETDATA = 'eMarketData'        # 常规行情事件
 EVENT_ACCOUNT = 'eAccount'
 EVENT_POSITION = 'ePosition'
 EVENT_ORDER = 'eOrder'
@@ -20,6 +20,7 @@ EVENT_TRORDER = 'eTrOrder'              # vnpy格式的委托对象
 EVENT_TRADE ='eTrade'                   # 成交推送事件
 EVENT_PRODUCT = 'eProduct'              # 主力合约事件
 EVENT_TICK = 'eTick'                    # tick推送事件
+EVENT_ALARM = 'eAlarm'                  # 警报事件
 
 #----------------------------------------------------------------------
 def test():

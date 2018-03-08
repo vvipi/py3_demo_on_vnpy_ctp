@@ -29,12 +29,12 @@ class MainWindow(QMainWindow):
     def initUi(self):
         """初始化界面"""
         self.setWindowTitle("CTP demo——基于vnpy的ctp接口")
-        widgetLogM, dockLogM = self.createDock(LogMonitor, '日志', Qt.TopDockWidgetArea, 1, True)
+        widgetLogM, dockLogM = self.createDock(LogMonitor, '日志', Qt.TopDockWidgetArea, engine=None, floatable=True)
         widgetAccountM, dockAccountM = self.createDock(AccountMonitor, '账户资金', Qt.TopDockWidgetArea)
-        widgetPositionM, dockPositionM = self.createDock(PositionMonitor, '持仓', Qt.TopDockWidgetArea, 2)
+        widgetPositionM, dockPositionM = self.createDock(PositionMonitor, '持仓', Qt.TopDockWidgetArea)
         widgetTradeM, dockTradeM = self.createDock(TradeMonitor, '成交', Qt.TopDockWidgetArea)
         widgetOrderM, dockOrderM = self.createDock(OrderMonitor, '委托', Qt.TopDockWidgetArea)
-        widgetNonetradeM, dockNonetradeM = self.createDock(NonetradeMonitor, '撤单', Qt.TopDockWidgetArea, 2)    
+        widgetNonetradeM, dockNonetradeM = self.createDock(NonetradeMonitor, '撤单', Qt.TopDockWidgetArea, engine=self.me)    
         self.tabifyDockWidget(dockAccountM, dockPositionM)
         self.tabifyDockWidget(dockAccountM, dockTradeM)
         self.tabifyDockWidget(dockAccountM, dockOrderM)
@@ -53,12 +53,10 @@ class MainWindow(QMainWindow):
         helpMenu = menubar.addMenu(u'帮助')
         helpMenu.addAction(aboutAction)
             
-    def createDock(self, widgetClass, widgetName, widgetArea, engines=1, float=False):
+    def createDock(self, widgetClass, widgetName, widgetArea, engine=None, floatable=False):
         """创建停靠组件"""
-        if engines ==1:
-            widget = widgetClass( self.ee)
-        elif engines ==2:
-            widget = widgetClass( self.ee, self.me)
+        widget = widgetClass(self.ee, engine) if engine else widgetClass(self.ee) 
+
         dock = QDockWidget(widgetName)
         dock.setWidget(widget)
         dock.setObjectName(widgetName)
@@ -201,14 +199,14 @@ class PositionMonitor(QTableWidget):
     """用于显示持仓"""
     signal = pyqtSignal(type(Event()))
     #----------------------------------------------------------------------
-    def __init__(self, eventEngine, mainEngine, parent=None):
+    def __init__(self, eventEngine, parent=None):
         """Constructor"""
         super(PositionMonitor, self).__init__(parent)
-        self.dictLabels = ["合约代码", "合约名称","持仓方向", "总持仓量", "昨持仓量", "今持仓量","今冻结","昨冻结",
-                           "合约开仓价值", "合约持仓价值", "开仓均价", "持仓盈亏","开仓盈亏","风险度"]
+        self.dictLabels = [
+            "合约代码", "合约名称", "持仓方向", "总持仓量", "昨持仓量", "今持仓量", "总冻结",
+            "持仓均价", "开仓均价", "持仓盈亏", "开仓盈亏"]
         self.__eventEngine = eventEngine
-        self.__mainEngine = mainEngine
-        self.dict ={}
+        self.dict = {}
         self.setWindowTitle('持仓')
         self.setColumnCount(len(self.dictLabels))
         self.setHorizontalHeaderLabels(self.dictLabels)
@@ -216,7 +214,7 @@ class PositionMonitor(QTableWidget):
         self.setEditTriggers(QTableWidget.NoEditTriggers) # 设为不可编辑状态
         self.signal.connect(self.updateposition)
         self.__eventEngine.register(EVENT_POSITION, self.signal.emit)
-        self.insertRow(0)#插入合计的表格
+        self.insertRow(0) # 插入合计的表格
         col = 0
         self.dict['合计'] = {}
         for i in self.dictLabels:
@@ -226,147 +224,90 @@ class PositionMonitor(QTableWidget):
             col += 1
         self.dict['合计']["合约代码"].setText('合计')
         
-        
-    def updateposition(self,event):
-        var = event.dict_['data']
+    def updateposition(self, event):
+        pos = event.dict_['data']
         last = event.dict_['last']
-        PreBalance = float(self.__mainEngine.dict_account["静态权益"])
-        directionmap = {'多持':DIRECTION_LONG, '空持':DIRECTION_SHORT}
-        ExchangeID =var['ExchangeID']
-        
-        # if var["InstrumentID"] == 'j1801':
-            # print('date', var["PositionDate"], 'pos', var["Position"], 'taday', var["TodayPosition"], 'yestoday', var["YdPosition"], 'longfrozen', var["LongFrozen"], 'shortfrozen', var["ShortFrozen"])
-        
-        if var["Position"] != 0:#有持仓
-            index = var["InstrumentID"] + '.' + var["PosiDirection"]
-            if index not in self.dict.keys():#计算持仓数据
-                self.dict[index] = {}
-                self.dict[index]["合约代码"] = QTableWidgetItem(str(var["InstrumentID"]))
-                self.dict[index]["合约名称"] = QTableWidgetItem(str(var['InstrumentName']))
-                self.dict[index]["合约持仓价值"] = QTableWidgetItem(str(var["PositionCost"]))
-                self.dict[index]["昨结算价"] = QTableWidgetItem(str(var["PreSettlementPrice"]))
-                self.dict[index]["乘数"] = var["VolumeMultiple"]
-                self.dict[index]["持仓盈亏"] = QTableWidgetItem(str(round(var["PositionProfit"],2)))
-                self.dict[index]["合约开仓价值"] = QTableWidgetItem(str(var["OpenCost"]))
-                self.dict[index]["开仓均价"] =QTableWidgetItem(str(round( var["OpenCost"]/ self.dict[index]["乘数"],2)))
-                self.dict[index]["总持仓量"] =  QTableWidgetItem(str(var["Position"]))
-                self.dict[index]["今持仓量"] = QTableWidgetItem('0')
-                self.dict[index]["昨持仓量"] = QTableWidgetItem('0') 
-                self.dict[index]["风险度"] = QTableWidgetItem(str(round(var["OpenCost"] / PreBalance * 100, 2)))
+        dm = {
+            DIRECTION_LONG: "多持",
+            DIRECTION_SHORT: "空持",
+        }
 
-                if var["PosiDirection"] == DIRECTION_LONG:
-                    self.dict[index]["持仓方向"] =QTableWidgetItem(str('多持'))
-                    self.dict[index]["持仓方向"].setBackground(QColor(255, 0, 0))
-                    po = var["PositionProfit"] + var["PositionCost"] - var["OpenCost"]
-                    self.dict[index]["开仓盈亏"]  =QTableWidgetItem(str(po))
-                else:
-                    self.dict[index]["持仓方向"] =QTableWidgetItem(str('空持'))
-                    self.dict[index]["持仓方向"].setBackground(QColor(34, 139, 34))
-                    po = round(var["PositionProfit"] + var["OpenCost"] - var["PositionCost"], 2)
-                    self.dict[index]["开仓盈亏"]  =QTableWidgetItem(str(po))
-                if var["PositionProfit"] > 0 :
-                    self.dict[index]["持仓盈亏"].setBackground(QColor(255, 0, 0))
-                else:
-                    self.dict[index]["持仓盈亏"].setBackground(QColor(34, 139, 34))
-                if po >0 :
-                    self.dict[index]["开仓盈亏"].setBackground(QColor(255, 0, 0))
-                else:
-                    self.dict[index]["开仓盈亏"].setBackground(QColor(34, 139, 34))
-                if ExchangeID == EXCHANGE_SHFE:
-                    if var["PositionDate"] == "2":   #1今仓，2昨仓
-                        self.dict[index]["昨持仓量"].setText(str(var["Position"]))
-                        self.dict[index]["昨冻结"] = QTableWidgetItem(str( var["LongFrozen"] + var["ShortFrozen"]))
-                        self.dict[index]["今冻结"] = QTableWidgetItem('')
-                    if var["PositionDate"] == "1":  #1今仓，2昨仓
-                        self.dict[index]["今持仓量"].setText(str(var["Position"]))
-                        self.dict[index]["今冻结"] = QTableWidgetItem(str( var["LongFrozen"] + var["ShortFrozen"]))
-                        self.dict[index]["昨冻结"] = QTableWidgetItem('')
-                    pt = int(self.dict[index]["今持仓量"].text()) + int(self.dict[index]["昨持仓量"].text())
-                    self.dict[index]["总持仓量"].setText(str(pt))
-                else:
-                #非上期所的品种都算昨持
-                    self.dict[index]["昨持仓量"].setText(str(var["Position"]))
-                    self.dict[index]["昨冻结"] = QTableWidgetItem(str( var["LongFrozen"] + var["ShortFrozen"]))
-                    self.dict[index]["今冻结"] = QTableWidgetItem('')
-                
-                self.insertRow(0)#插入表格第一行
-                col = 0#列计数
+        posName = '.'.join([pos.symbol + pos.direction])
+        if pos.position != 0: # 有持仓
+            if posName not in self.dict.keys(): # 插入新持仓
+                self.dict[posName] = {}
+                self.dict[posName]["合约代码"] = QTableWidgetItem(str(pos.symbol))
+                self.dict[posName]["合约名称"] = QTableWidgetItem(str(pos.name))
+                self.dict[posName]["持仓方向"] = QTableWidgetItem(str(dm.get(pos.direction, '未知方向')))
+                self.dict[posName]["总持仓量"] =  QTableWidgetItem(str(pos.position))
+                self.dict[posName]["昨持仓量"] = QTableWidgetItem(str(pos.ydPosition))
+                self.dict[posName]["今持仓量"] = QTableWidgetItem(str(pos.position - pos.ydPosition))
+                self.dict[posName]["总冻结"] = QTableWidgetItem(str(pos.frozen))
+                self.dict[posName]["持仓均价"] = QTableWidgetItem(str(round(pos.price, 2)))
+                self.dict[posName]["开仓均价"] = QTableWidgetItem(str(round(pos.openPrice, 2)))
+                self.dict[posName]["持仓盈亏"] = QTableWidgetItem(str(round(pos.positionProfit, 2)))
+                self.dict[posName]["开仓盈亏"] = QTableWidgetItem(str(round(pos.openProfit, 2)))
+                self.insertRow(0) # 插入表格第一行
+                col = 0 # 列计数
                 for label in self.dictLabels:
-                    self.dict[index][label].setTextAlignment(0x0004 | 0x0080)  # 居中
-                    self.setItem(0, col, self.dict[index][label])
+                    self.dict[posName][label].setTextAlignment(0x0004 | 0x0080)  # 居中
+                    self.setItem(0, col, self.dict[posName][label])
                     col += 1
+            else: # 更新可能会变的数值
+                self.dict[posName]["总持仓量"].setText(str(pos.position))
+                self.dict[posName]["昨持仓量"].setText(str(pos.ydPosition))
+                self.dict[posName]["今持仓量"].setText(str(pos.position - pos.ydPosition))
+                self.dict[posName]["总冻结"].setText(str(pos.frozen))
+                self.dict[posName]["持仓均价"].setText(str(round(pos.price, 2)))
+                self.dict[posName]["开仓均价"].setText(str(round(pos.openPrice, 2)))
+                self.dict[posName]["持仓盈亏"].setText(str(round(pos.positionProfit, 2)))
+                self.dict[posName]["开仓盈亏"].setText(str(round(pos.openProfit, 2)))
+            # 设置颜色
+            if pos.direction == DIRECTION_LONG:
+                self.dict[posName]["持仓方向"].setBackground(QColor(255, 0, 0))
+            else:
+                self.dict[posName]["持仓方向"].setBackground(QColor(34, 139, 34))
+            if pos.positionProfit > 0:
+                self.dict[posName]["持仓盈亏"].setBackground(QColor(255, 0, 0))
+            else:
+                self.dict[posName]["持仓盈亏"].setBackground(QColor(34, 139, 34))
+            if pos.openProfit > 0 :
+                self.dict[posName]["开仓盈亏"].setBackground(QColor(255, 0, 0))
+            else:
+                self.dict[posName]["开仓盈亏"].setBackground(QColor(34, 139, 34))
 
-            else:#更新可能会变的数据
-                self.dict[index]["持仓盈亏"].setText(str(round(var["PositionProfit"],2)))
-                if var["PosiDirection"] == DIRECTION_LONG:
-                    po = round(var["PositionProfit"] + var["PositionCost"] - var["OpenCost"], 2)
-                    self.dict[index]["开仓盈亏"].setText(str(po))
-                else:
-                    po = round(var["PositionProfit"] + var["OpenCost"] - var["PositionCost"], 2)
-                    self.dict[index]["开仓盈亏"].setText(str(po))
-                    
-                self.dict[index]["总持仓量"] .setText(str(var["Position"]))
-                if ExchangeID == EXCHANGE_SHFE:
-                    if var["PositionDate"] == "2":   #1今仓，2昨仓
-                        self.dict[index]["昨持仓量"].setText(str(var["Position"]))
-                        self.dict[index]["昨冻结"].setText(str( var["LongFrozen"] + var["ShortFrozen"]))
-                    if var["PositionDate"] == "1":  #1今仓，2昨仓
-                        self.dict[index]["今持仓量"].setText(str(var["Position"]))
-                        self.dict[index]["今冻结"].setText(str( var["LongFrozen"] + var["ShortFrozen"]))
-                    pt = int(self.dict[index]["今持仓量"].text()) + int(self.dict[index]["昨持仓量"].text())
-                    self.dict[index]["总持仓量"].setText(str(pt))
-                else:
-                    self.dict[index]["昨持仓量"].setText(str(var["Position"]))
-                    self.dict[index]["昨冻结"].setText(str( var["LongFrozen"] + var["ShortFrozen"]))
-
-                if var["PositionProfit"] > 0:
-                    self.dict[index]["持仓盈亏"].setBackground(QColor(255, 0, 0))
-                else:
-                    self.dict[index]["持仓盈亏"].setBackground(QColor(34, 139, 34))
-                if po > 0:
-                    self.dict[index]["开仓盈亏"].setBackground(QColor(255, 0, 0))
-                else:
-                    self.dict[index]["开仓盈亏"].setBackground(QColor(34, 139, 34))
-        else :#没有持仓，有2个情况：1，已经全部平仓，2，有开仓挂单
-            index = var["InstrumentID"] + '.' + var["PosiDirection"]
-            if index in self.dict.keys():#只处理全部平仓的表格
-                del self.dict[index]
+        else: # 无持仓
+            if posName in self.dict.keys(): 
+                del self.dict[posName]
                 r = self.rowCount()
-                for i in range(r ):
+                for i in range(r):
                     row = r - 1 - i
-                    if self.item(row, 0).text() == var["InstrumentID"] and directionmap[self.item(row, 2).text()] == var["PosiDirection"]:
-                        self.removeRow(row)#删除表格
-                        
-        if last == True :#处理合计表格
+                    if (self.item(row, 0).text() == str(pos.symbol)) and (self.item(row, 2).text() == dm[pos.direction]):
+                        self.removeRow(row) # 删除表格
+
+        if last: # 处理合计表格
             row = self.rowCount()
             p = {}
             p["总持仓量"] = 0
             p["昨持仓量"] = 0
             p["今持仓量"] = 0
-            p["合约持仓价值"] = float(0)
-            p["合约开仓价值"] = float(0)
+            p["总冻结"] = 0
             p["持仓盈亏"] = float(0)
             p["开仓盈亏"] = float(0)
-            p["风险度"] = float(0)
 
             for i in range(row - 1):
                 p["总持仓量"] += int(self.item(i, 3).text())
                 p["昨持仓量"] += int(self.item(i, 4).text())
                 p["今持仓量"] += int(self.item(i, 5).text())
-                p["合约持仓价值"] += float(self.item(i, 8).text())
-                p["合约开仓价值"] += float(self.item(i, 9).text())
-                p["持仓盈亏"] += float(self.item(i, 11).text())
-                p["开仓盈亏"] += float(self.item(i, 12).text())
-                p["风险度"] = round(float(self.item(i, 13).text()) + p["风险度"], 2)
+                p["总冻结"] += int(self.item(i, 6).text())
+                p["持仓盈亏"] += float(self.item(i, 9).text())
+                p["开仓盈亏"] += float(self.item(i, 10).text())
             self.dict['合计']['总持仓量'].setText(str(p["总持仓量"]))
-            self.dict['合计']['昨持仓量'].setText(str( p["昨持仓量"]))
+            self.dict['合计']['昨持仓量'].setText(str(p["昨持仓量"]))
             self.dict['合计']['今持仓量'].setText(str(p["今持仓量"]))
-            self.dict['合计']['合约持仓价值'].setText(str(p["合约持仓价值"]))
-            self.dict['合计']['合约开仓价值'].setText(str(p["合约开仓价值"]))
-            self.dict['合计']['持仓盈亏'].setText(str(round(p["持仓盈亏"],2) ))
+            self.dict['合计']['总冻结'].setText(str(p["总冻结"]))
+            self.dict['合计']['持仓盈亏'].setText(str(round(p["持仓盈亏"],2)))
             self.dict['合计']['开仓盈亏'].setText(str(round(p["开仓盈亏"],2)))
-            self.dict['合计']['风险度'].setText(str(p["风险度"]))
-
 ########################################################################
 class TradeMonitor(QTableWidget):
     """用于显示成交记录"""
