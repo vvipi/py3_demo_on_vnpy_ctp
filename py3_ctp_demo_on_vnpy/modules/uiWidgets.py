@@ -554,13 +554,14 @@ class NonetradeMonitor(QTableWidget):
             
 
             
-        if index  in self.dict.keys():#撤单
+        if index in self.dict.keys(): # 撤单
+
             self.dict[index]["状态信息"].setText(str(var["StatusMsg"]))
             if var["StatusMsg"] == '全部成交':
-                r =self.rowCount()
+                r = self.rowCount()
                 for i in range(r):
-                    j=r-1-i
-                    if self.item(j,9).text() != '未成交':
+                    j = r-1-i
+                    if self.item(j,11).text() == str(var["OrderSysID"]):
                         self.removeRow(j)
 
 

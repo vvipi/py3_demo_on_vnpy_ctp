@@ -16,7 +16,7 @@ from modules.ctaEngine import CtaEngine
 from modules.rmEngine import *
 from modules.uiWidgets import *
 from modules.objects import *
-from modules.baseSetting import  WORKING_DIR, USER_FILE, globalSetting
+from modules.baseSetting import WORKING_DIR, USER_FILE, globalSetting
 
 
 
