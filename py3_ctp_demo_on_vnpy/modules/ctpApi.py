@@ -684,8 +684,9 @@ class CtpTdApi(TdApi):
             # 针对上期所持仓的今昨分条返回（有昨仓、无今仓），读取昨仓数据.其他交易所只有一条，直接读取
             if (data['YdPosition'] and not data['TodayPosition']) and ExchangeID == EXCHANGE_SHFE:
                 pos.ydPosition = data['Position']
+            # YdPosition字段存在一个问题，今天平昨仓不会减少这个字段的数量，改为从TodayPosition计算
             if ExchangeID != EXCHANGE_SHFE:
-                pos.ydPosition = data['YdPosition']
+                pos.ydPosition = data['Position'] - data['TodayPosition']
                 
             # 计算成本
             size = self.symbolSizeDict[pos.symbol]
