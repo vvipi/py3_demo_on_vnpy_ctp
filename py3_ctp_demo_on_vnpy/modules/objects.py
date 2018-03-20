@@ -195,7 +195,7 @@ class CtaCancelOrderReq(object):
         self.orderID = EMPTY_STRING             # 报单号
         self.frontID = EMPTY_STRING             # 前置机号
         self.sessionID = EMPTY_STRING           # 会话号
-        self.OrderSysID = EMPTY_STRING
+        self.orderSysID = EMPTY_STRING
 ########################################################################
 class CtaOrderData(object):
     """订单数据类"""

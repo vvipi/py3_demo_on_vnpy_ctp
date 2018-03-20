@@ -594,7 +594,7 @@ class CtpTdApi(TdApi):
         # req['SessionID'] = cancelOrderReq.sessionID
         # 撤单有两种字段组合，其中一种没试成功
         req['ExchangeID'] = cancelOrderReq.exchange
-        req['OrderSysID'] = cancelOrderReq.OrderSysID
+        req['OrderSysID'] = cancelOrderReq.orderSysID
         
         req['ActionFlag'] = defineDict['THOST_FTDC_AF_Delete']
         req['BrokerID'] = self.brokerID
