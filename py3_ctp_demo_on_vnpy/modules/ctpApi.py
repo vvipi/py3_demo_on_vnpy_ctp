@@ -826,6 +826,7 @@ class CtpTdApi(TdApi):
         order.cancelTime = data['CancelTime']
         order.frontID = data['FrontID']
         order.sessionID = data['SessionID']
+        order.orderSysID = data['OrderSysID]
         # # vnpy格式报单事件
         event2 = Event(type_=EVENT_VNORDER)
         event2.dict_['data'] = order

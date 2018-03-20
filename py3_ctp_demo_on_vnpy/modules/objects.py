@@ -173,6 +173,7 @@ class CtaOrderReq(object):
         """Constructor"""
         self.symbol = EMPTY_STRING              # 代码
         self.exchange = EMPTY_STRING            # 交易所
+        self.orderSysID = EMPTY_STRING          #  本地报单编号
         self.price = EMPTY_FLOAT                # 价格
         self.volume = EMPTY_INT                 # 数量
     

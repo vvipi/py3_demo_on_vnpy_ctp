@@ -145,6 +145,7 @@ class CtaEngine(object):
                 req.frontID = order.frontID
                 req.sessionID = order.sessionID
                 req.orderID = order.orderID
+                req.orderSysID = order.orderSysID
                 # self.mainEngine.cancelOrder(req, order.gatewayName)    
                 self.mainEngine.cancelOrder(req)    
 
