@@ -479,6 +479,7 @@ class OrderMonitor(QTableWidget):
 class NonetradeMonitor(QTableWidget):
     """用于未成交报单"""
     signal = pyqtSignal(type(Event()))
+    FINISHED_STATUS = [STATUS_ALLTRADED, STATUS_REJECTED, STATUS_CANCELLED]
     #----------------------------------------------------------------------
     def __init__(self, eventEngine,mainEngine,  parent=None):
         """Constructor"""
@@ -557,11 +558,11 @@ class NonetradeMonitor(QTableWidget):
         if index in self.dict.keys(): # 撤单
 
             self.dict[index]["状态信息"].setText(str(var["StatusMsg"]))
-            if var["StatusMsg"] == '全部成交':
+            if var['OrderStatus'] in self.FINISHED_STATUS:
                 r = self.rowCount()
                 for i in range(r):
                     j = r-1-i
-                    if self.item(j,11).text() == str(var["OrderSysID"]):
+                    if self.item(j,10).text() == str(var["OrderSysID"]):
                         self.removeRow(j)
 
 
