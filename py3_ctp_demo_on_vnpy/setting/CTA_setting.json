@@ -1,0 +1,11 @@
+
+[
+    {
+        "name": "strategy Random",
+        "className": "StrategyRandom",
+        "vtSymbol": "ni1805",
+        "size": 500,
+        "volume": 1,
+        "priceTick": 10
+    }
+]
