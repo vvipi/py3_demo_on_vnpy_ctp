@@ -68,12 +68,7 @@ class MainEngine:
         self.brokerID = ''        # 经纪商代码
         self.MdIp = ''         # 行情服务器地址
         self.TdIp = ''         # 交易服务器地址
-        # 保存到本地的持仓、账户、委托数据
-        self.dict_account = {}
-        self.dict_position = {}
-        self.dict_order = {}
-        self.dict_working_order = {}
-        self.todayBalance = []
+
         # vn格式的委托数据
         self.orderDict = {}
         self.workingOrderDict = {}
@@ -81,8 +76,6 @@ class MainEngine:
         self.detailDict = {}                                # vtSymbol:PositionDetail
         self.tdPenaltyList = globalSetting['tdPenalty']     # 平今手续费惩罚的产品代码列表
         # 载入设置
-        self.setting = {}
-        self.pool = []
         self.loadSetting()
         # 循环查询持仓和账户相关
         self.countGet = 0  # 查询延时计数
