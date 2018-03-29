@@ -519,7 +519,7 @@ class NonetradeMonitor(QTableWidget):
         var = event.dict_['data']
         index = str(var["OrderSysID"])+'.'+var["InstrumentID"]
         
-        if index not in self.dict.keys() and var["StatusMsg"] == '未成交':
+        if index not in self.dict.keys() and var["OrderStatus"] == STATUS_NOTTRADED:
             self.insertRow(0)
             self.dict[index] = {}
             self.dict[index]["合约代码"] = QTableWidgetItem (str(var["InstrumentID"]))
@@ -532,7 +532,7 @@ class NonetradeMonitor(QTableWidget):
             self.dict[index]["报单编号"] = QTableWidgetItem(str(var["OrderSysID"]))
             self.dict[index]["前置编号"] = QTableWidgetItem(str(var["FrontID"]))
             self.dict[index]["会话编号"] = QTableWidgetItem(str(var["SessionID"]))
-            self.dict[index]["状态信息"] = QTableWidgetItem(str(var["StatusMsg"]))
+            self.dict[index]["状态信息"] = QTableWidgetItem(str(var["OrderStatus"]))
             self.dict[index]["交易所代码"] = QTableWidgetItem(str(var["ExchangeID"]))
             t =str(var["InsertDate"]) + ' '+str(var["InsertTime"])
             self.dict[index]["报单日期"] = QTableWidgetItem(str(t))
@@ -557,7 +557,7 @@ class NonetradeMonitor(QTableWidget):
             
         if index in self.dict.keys(): # 撤单
 
-            self.dict[index]["状态信息"].setText(str(var["StatusMsg"]))
+            self.dict[index]["状态信息"].setText(str(var["OrderStatus"]))
             if var['OrderStatus'] in self.FINISHED_STATUS:
                 r = self.rowCount()
                 for i in range(r):
