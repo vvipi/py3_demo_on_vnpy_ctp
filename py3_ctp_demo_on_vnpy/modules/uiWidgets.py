@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import *
 from datetime import datetime, date
 import json
 import logging
-import pyqtgraph as pg
 
 from modules.eventEngine import  *
 from modules.eventType import  *
