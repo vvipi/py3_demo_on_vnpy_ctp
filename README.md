@@ -17,5 +17,4 @@ python3版本，无数据库，无talib，适合开发不依赖历史数据的�
 启动demoMain.py。
 
 
-
 ![](https://github.com/vvipi/py3_demo_on_vnpy_ctp/raw/beta/screenshots/screenshot20180308.PNG)
