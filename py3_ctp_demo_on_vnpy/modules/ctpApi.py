@@ -755,13 +755,46 @@ class CtpTdApi(TdApi):
     #----------------------------------------------------------------------
     def onRspOrderInsert(self, data, error, n, last):
         """发单错误（柜台）"""
-        log = error['ErrorMsg']
+        # 推送委托信息
+        order = CtaOrderData()
+        order.gatewayName = self.gatewayName
+        order.symbol = data['InstrumentID']
+        order.exchange = exchangeMapReverse[data['ExchangeID']]
+        order.vtSymbol = order.symbol
+        order.orderID = data['OrderRef']
+        order.vtOrderID = '.'.join([self.gatewayName, order.orderID])        
+        order.direction = directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN)
+        order.offset = offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN)
+        order.status = STATUS_REJECTED
+        order.price = data['LimitPrice']
+        order.totalVolume = data['VolumeTotalOriginal']
+
+        # vnpy格式报单事件
+        event = Event(type_=EVENT_VNORDER)
+        event.dict_['data'] = order
+        self.__eventEngine.put(event)
+
+        log = '{msg},{id},{direction},{offset},p:{price},v:{vol},ref:{ref},from:onRspOrderInsert'.format(
+            msg=error['ErrorMsg'],
+            id=order.symbol,
+            direction=order.direction,
+            offset=order.offset,
+            price=order.price,
+            vol=order.totalVolume,
+            ref=order.orderID)
         self.put_log_event(log)
         
     #----------------------------------------------------------------------
     def onRspOrderAction(self, data, error, n, last):
         """撤单错误（柜台）"""
-        log = error['ErrorMsg']
+        log = '{msg},{id},{direction},{offset},p:{price},v:{vol},ref:{ref},from:onRspOrderAction'.format(
+            msg=error['ErrorMsg'],
+            id=data['InstrumentID'],
+            direction=directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN),
+            offset=offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN),
+            price=data['LimitPrice'],
+            vol=data['VolumeTotalOriginal'],
+            ref=data['OrderRef'])
         self.put_log_event(log)
         
     #----------------------------------------------------------------------
@@ -882,7 +915,33 @@ class CtpTdApi(TdApi):
     #----------------------------------------------------------------------
     def onErrRtnOrderInsert(self, data, error):
         """发单错误回报（交易所）"""
-        log = error['ErrorMsg']
+        # 推送委托信息
+        order = CtaOrderData()
+        order.gatewayName = self.gatewayName
+        order.symbol = data['InstrumentID']
+        order.exchange = exchangeMapReverse[data['ExchangeID']]
+        order.vtSymbol = order.symbol
+        order.orderID = data['OrderRef']
+        order.vtOrderID = '.'.join([self.gatewayName, order.orderID])        
+        order.direction = directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN)
+        order.offset = offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN)
+        order.status = STATUS_REJECTED
+        order.price = data['LimitPrice']
+        order.totalVolume = data['VolumeTotalOriginal']
+        
+        # vnpy格式报单事件
+        event2 = Event(type_=EVENT_VNORDER)
+        event2.dict_['data'] = order
+        self.__eventEngine.put(event2)
+        
+        log = '{msg},{id},{direction},{offset},p:{price},v:{vol},ref:{ref},from:onErrRtnOrderInsert'.format(
+            msg=error['ErrorMsg'],
+            id=order.symbol,
+            direction=order.direction,
+            offset=order.offset,
+            price=order.price,
+            vol=order.totalVolume,
+            ref=order.orderID)
         self.put_log_event(log)
         
     #----------------------------------------------------------------------
