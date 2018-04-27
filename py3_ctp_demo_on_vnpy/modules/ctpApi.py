@@ -98,6 +98,7 @@ class CtpMdApi(MdApi):
         self.password = ''        # 密码
         self.brokerID = ''        # 经纪商代码
         self.address = ''         # 服务器地址
+        self.gatewayName = 'CTP'    # 网关名称
         
     def put_log_event(self, log):  # log事件注册
         event = Event(type_=EVENT_LOG)
@@ -787,13 +788,9 @@ class CtpTdApi(TdApi):
     #----------------------------------------------------------------------
     def onRspOrderAction(self, data, error, n, last):
         """撤单错误（柜台）"""
-        log = '{msg},{id},{direction},{offset},p:{price},v:{vol},ref:{ref},from:onRspOrderAction'.format(
+        log = '{msg},{id},ref:{ref},from:onRspOrderAction'.format(
             msg=error['ErrorMsg'],
             id=data['InstrumentID'],
-            direction=directionMapReverse.get(data['Direction'], DIRECTION_UNKNOWN),
-            offset=offsetMapReverse.get(data['CombOffsetFlag'], OFFSET_UNKNOWN),
-            price=data['LimitPrice'],
-            vol=data['VolumeTotalOriginal'],
             ref=data['OrderRef'])
         self.put_log_event(log)
         
