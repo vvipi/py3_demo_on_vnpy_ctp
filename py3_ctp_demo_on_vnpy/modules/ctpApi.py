@@ -831,7 +831,7 @@ class CtpTdApi(TdApi):
         # # 保存代码和报单号
         order.symbol = data['InstrumentID']
         order.exchange = exchangeMapReverse[data['ExchangeID']]
-        order.vtSymbol = '.'.join([order.symbol, order.exchange])
+        order.vtSymbol = order.symbol # '.'.join([order.symbol, order.exchange])
         
         # 报单号
         order.orderID = data['OrderRef']
