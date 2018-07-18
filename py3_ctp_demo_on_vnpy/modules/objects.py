@@ -173,7 +173,7 @@ class CtaOrderReq(object):
         """Constructor"""
         self.symbol = EMPTY_STRING              # 代码
         self.exchange = EMPTY_STRING            # 交易所
-        self.orderSysID = EMPTY_STRING          #  本地报单编号
+        self.OrderSysID = EMPTY_STRING          #  本地报单编号
         self.price = EMPTY_FLOAT                # 价格
         self.volume = EMPTY_INT                 # 数量
     
@@ -195,7 +195,7 @@ class CtaCancelOrderReq(object):
         self.orderID = EMPTY_STRING             # 报单号
         self.frontID = EMPTY_STRING             # 前置机号
         self.sessionID = EMPTY_STRING           # 会话号
-        self.orderSysID = EMPTY_STRING
+        self.OrderSysID = EMPTY_STRING
 ########################################################################
 class CtaOrderData(object):
     """订单数据类"""
