@@ -769,6 +769,7 @@ class CtpTdApi(TdApi):
         order.status = STATUS_REJECTED
         order.price = data['LimitPrice']
         order.totalVolume = data['VolumeTotalOriginal']
+        order.OrderSysID = data['OrderSysID']
 
         # vnpy格式报单事件
         event = Event(type_=EVENT_VNORDER)
@@ -925,7 +926,8 @@ class CtpTdApi(TdApi):
         order.status = STATUS_REJECTED
         order.price = data['LimitPrice']
         order.totalVolume = data['VolumeTotalOriginal']
-        
+        order.OrderSysID = data['OrderSysID']
+
         # vnpy格式报单事件
         event2 = Event(type_=EVENT_VNORDER)
         event2.dict_['data'] = order

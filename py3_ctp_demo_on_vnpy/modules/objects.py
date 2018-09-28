@@ -226,7 +226,8 @@ class CtaOrderData(object):
         # CTP/LTS相关
         self.frontID = EMPTY_INT                # 前置机编号
         self.sessionID = EMPTY_INT              # 连接编号
-
+        self.OrderSysID = EMPTY_INT
+        
 class CtaPositionData(object):
     """持仓数据类"""
 
