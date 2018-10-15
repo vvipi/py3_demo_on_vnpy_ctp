@@ -159,7 +159,7 @@ class StrategyRandom(object):
                 self.exitPrice = tick.askPrice1 * 1.006
             elif self.direction is DIRECTION_SHORT:
                 price = tick.bidPrice1 - self.priceTick * 3
-                self.short(price, self.pos)
+                self.short(price, self.volume)
                 self.openPrice = tick.bidPrice1
                 self.stopPrice = tick.bidPrice1 * 1.002
                 self.exitPrice = tick.bidPrice1 * 0.994
