@@ -6,7 +6,7 @@
 # 系统模块
 from datetime import datetime, time, timedelta
 import json
-import shelve
+# import shelve
 import functools
 # 自己开发的模块
 from modules.ctpApi import *
@@ -211,23 +211,53 @@ class MainEngine:
         except KeyError:
             return None
     #----------------------------------------------------------------------
+    # def saveContracts(self):
+        # """保存所有合约对象到硬盘"""
+        # contractFilePath = WORKING_DIR + 'temp/contracts'
+        # f = shelve.open(contractFilePath)
+        # f['data'] = self.contractDict
+        # f.close()
+    #----------------------------------------------------------------------
     def saveContracts(self):
         """保存所有合约对象到硬盘"""
         contractFilePath = WORKING_DIR + 'temp/contracts'
-        f = shelve.open(contractFilePath)
-        f['data'] = self.contractDict
-        f.close()
-    
+        data = {key: value.__dict__ for key, value in self.contractDict}
+        with open(contractFilePath, 'w', encoding="utf-8") as f:
+            jsonD = json.dumps(data,indent=4)
+            f.write(jsonD)
+        
+    #----------------------------------------------------------------------
+    # def loadContracts(self):
+        # """从硬盘读取合约对象"""
+        # contractFilePath = WORKING_DIR + 'temp/contracts'
+        # f = shelve.open(contractFilePath)
+        # if 'data' in f:
+            # d = f['data']
+            # for key, value in d.items():
+                # self.contractDict[key] = value
+        # f.close()
+        
     #----------------------------------------------------------------------
     def loadContracts(self):
         """从硬盘读取合约对象"""
+
         contractFilePath = WORKING_DIR + 'temp/contracts'
-        f = shelve.open(contractFilePath)
-        if 'data' in f:
-            d = f['data']
-            for key, value in d.items():
-                self.contractDict[key] = value
-        f.close()
+        with open(contractFilePath, 'r', encoding='utf-8') as f:
+            contractDict = json.load(f)
+        
+        for k, v in contractDict:
+            # 创建合约信息实例
+            contract = CtaContractData() 
+            contract.vtSymbol = contract.symbol = k
+            contract.name = v.get('name')
+            contract.exchange = v.get('exchange')
+            contract.size = v.get('size')
+            contract.priceTick = v.get('priceTick')
+            contract.strikePrice = v.get('strikePrice')
+            contract.underlyingSymbol = v.get('underlyingSymbol')
+            contract.optionType = v.get('optionType')
+            self.contractDict[k] = contract
+
     #----------------------------------------------------------------------
     def getOrder(self, vtOrderID):
         """查询委托"""
