@@ -5,8 +5,6 @@
 '''
 # 系统模块
 from datetime import datetime, time, timedelta
-import json
-# import shelve
 import functools
 # 自己开发的模块
 from modules.ctpApi import *
@@ -16,6 +14,7 @@ from modules.ctaEngine import CtaEngine
 from modules.rmEngine import *
 from modules.uiWidgets import *
 from modules.objects import *
+from modules.functions import load_json, save_json
 from modules.baseSetting import WORKING_DIR, USER_FILE, globalSetting
 
 
@@ -101,13 +100,12 @@ class MainEngine:
     def loadSetting(self):
         """载入设置"""
         # 载入用户信息
-        with open(USER_FILE, 'r', encoding="utf-8") as f:
-            d = json.load(f)
-            self.userID = d['userID']          # 账号
-            self.password = d['password']        # 密码
-            self.brokerID = d['brokerID']        # 经纪商代码
-            self.MdIp = d['MdIp']         # 行情服务器地址
-            self.TdIp = d['TdIp']         # 交易服务器地址
+        d = load_json(USER_FILE)
+        self.userID = d['userID']          # 账号
+        self.password = d['password']        # 密码
+        self.brokerID = d['brokerID']        # 经纪商代码
+        self.MdIp = d['MdIp']         # 行情服务器地址
+        self.TdIp = d['TdIp']         # 交易服务器地址
 
     # ----------------------------------------------------------------------
     def insertInstrument(self, event):
@@ -147,11 +145,10 @@ class MainEngine:
             self.ee.put(event)
             # 保存合约信息到本地
             self.saveContracts()
-
+            # 字典格式的合约数据也保存一份
             instrumentFile = WORKING_DIR + 'temp/InstrumentID.json'
-            with open(instrumentFile, 'w', encoding="utf-8") as f:
-                jsonD = json.dumps(self.list_instrument,indent=4)
-                f.write(jsonD)
+            save_json(self.list_instrument, instrumentFile)
+            # 推送日志
             event = Event(type_=EVENT_LOG)
             log = '合约信息已经保存到本地'
             event.dict_['log'] = log
@@ -165,16 +162,15 @@ class MainEngine:
         if last:
             # 更新交易日
             self.md.TradingDay = data['TradingDay']
-            # 将查询完成的合约信息保存到本地文件
+            # 将查询完成的合约截面数据保存到本地文件
             event = Event(type_=EVENT_LOG)
             log = '合约截面数据查询完成'
             event.dict_['log'] = log
             self.ee.put(event)
-
+            # 字典格式的合约截面数据也保存一份
             makertdataFile = WORKING_DIR + 'temp/Marketdata.json'
-            with open(makertdataFile, 'w', encoding="utf-8") as f:
-                jsonD = json.dumps(self.list_marketdata, indent=4)
-                f.write(jsonD)
+            save_json(self.list_marketdata, makertdataFile)
+            # 推送日志
             event = Event(type_=EVENT_LOG)
             log = '合约截面数据已经保存到本地'
             event.dict_['log'] = log
@@ -211,39 +207,18 @@ class MainEngine:
         except KeyError:
             return None
     #----------------------------------------------------------------------
-    # def saveContracts(self):
-        # """保存所有合约对象到硬盘"""
-        # contractFilePath = WORKING_DIR + 'temp/contracts'
-        # f = shelve.open(contractFilePath)
-        # f['data'] = self.contractDict
-        # f.close()
-    #----------------------------------------------------------------------
     def saveContracts(self):
         """保存所有合约对象到硬盘"""
         contractFilePath = WORKING_DIR + 'temp/contracts'
         data = {key: value.__dict__ for key, value in self.contractDict}
-        with open(contractFilePath, 'w', encoding="utf-8") as f:
-            jsonD = json.dumps(data,indent=4)
-            f.write(jsonD)
-        
-    #----------------------------------------------------------------------
-    # def loadContracts(self):
-        # """从硬盘读取合约对象"""
-        # contractFilePath = WORKING_DIR + 'temp/contracts'
-        # f = shelve.open(contractFilePath)
-        # if 'data' in f:
-            # d = f['data']
-            # for key, value in d.items():
-                # self.contractDict[key] = value
-        # f.close()
+        save_json(data, contractFilePath)
         
     #----------------------------------------------------------------------
     def loadContracts(self):
         """从硬盘读取合约对象"""
 
         contractFilePath = WORKING_DIR + 'temp/contracts'
-        with open(contractFilePath, 'r', encoding='utf-8') as f:
-            contractDict = json.load(f)
+        contractDict = load_json(contractFilePath)
         
         for k, v in contractDict:
             # 创建合约信息实例

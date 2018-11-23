@@ -4,7 +4,6 @@
 本文件中实现了CTA策略引擎，针对CTA类型的策略，抽象简化了部分底层接口的功能。
 
 '''
-import json
 import os
 import traceback
 from collections import OrderedDict
@@ -14,6 +13,7 @@ from copy import copy
 from modules.eventEngine import Event
 from modules.eventType import *
 from modules.objects import *
+from modules.functions import load_json, save_json
 from modules.baseSetting import WORKING_DIR
 from strategy import STRATEGY_CLASS
 
@@ -494,26 +494,20 @@ class CtaEngine(object):
     #----------------------------------------------------------------------
     def saveSetting(self):
         """保存策略配置"""
-        with open(self.settingfilePath, 'w') as f:
-            l = []
-            
-            for strategy in self.strategyDict.values():
-                setting = {}
-                for param in strategy.paramList:
-                    setting[param] = strategy.__getattribute__(param)
-                l.append(setting)
-            
-            jsonL = json.dumps(l, indent=4)
-            f.write(jsonL)
-    
+        l = []
+        for strategy in self.strategyDict.values():
+            setting = {}
+            for param in strategy.paramList:
+                setting[param] = strategy.__getattribute__(param)
+            l.append(setting)
+
+        save_json(l, self.settingfilePath)
     #----------------------------------------------------------------------
     def loadSetting(self):
         """读取策略配置"""
-        with open(self.settingfilePath) as f:
-            l = json.load(f)
-            
-            for setting in l:
-                self.loadStrategy(setting)
+        l = load_json(self.settingfilePath)
+        for setting in l:
+            self.loadStrategy(setting)
     
     #----------------------------------------------------------------------
     def getStrategyVar(self, name):
@@ -581,9 +575,7 @@ class CtaEngine(object):
             d[key] = strategy.__getattribute__(key)
 
         syncFile = WORKING_DIR + 'setting/syncdata/' + strategy.name + '-' + strategy.vtSymbol
-        with open(syncFile, 'w', encoding='utf-8') as jsonFile:
-            syncData = json.dumps(d, indent=4)
-            jsonFile.write(syncData)
+        save_json(d, syncFile)
         # self.mainEngine.dbUpdate(POSITION_DB_NAME, strategy.className,
         #                          d, flt, True)
         
@@ -599,8 +591,7 @@ class CtaEngine(object):
         syncData = {}
         syncFile = WORKING_DIR + 'setting/syncdata/' + strategy.name + '-' + strategy.vtSymbol
         try:
-            with open(syncFile, 'r', encoding='utf-8') as jsonFile:
-                syncData = json.load(jsonFile)
+            syncData = load_json(syncFile)
         except IOError:
             content = '策略{name}持仓同步数据读取失败,未找到文件'.format(name=strategy.name)
             self.writeCtaLog(content)
