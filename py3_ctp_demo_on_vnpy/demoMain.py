@@ -220,7 +220,7 @@ class MainEngine:
         contractFilePath = WORKING_DIR + 'temp/contracts'
         contractDict = load_json(contractFilePath)
         
-        for k, v in contractDict:
+        for k, v in contractDict.items():
             # 创建合约信息实例
             contract = CtaContractData() 
             contract.vtSymbol = contract.symbol = k
