@@ -7,6 +7,11 @@ python3版本，无数据库，无talib，适合开发不依赖历史数据的�
 
 因为是自用的系统，很多处理是个性化和不完善的，请自行修改。
 
+运行环境：
+64位版本windows7或windows10，python3.6（推荐Anaconda3-4.4.0-Windows-x86_64）
+选择上述运行环境可以不需要自行编译ctpapi，项目中的ctpapi是在上述环境下编译完成的
+linux环境需要自行编译ctpapi，推荐方法如下：
+http://www.wepin.online/blog/0015423531636106a227723e4d74f21b6febcdef77a493f000
 
 使用方法：
 
