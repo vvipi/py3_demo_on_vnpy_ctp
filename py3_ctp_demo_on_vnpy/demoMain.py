@@ -210,7 +210,7 @@ class MainEngine:
     def saveContracts(self):
         """保存所有合约对象到硬盘"""
         contractFilePath = WORKING_DIR + 'temp/contracts'
-        data = {key: value.__dict__ for key, value in self.contractDict}
+        data = {key: value.__dict__ for key, value in self.contractDict.items()}
         save_json(data, contractFilePath)
         
     #----------------------------------------------------------------------
