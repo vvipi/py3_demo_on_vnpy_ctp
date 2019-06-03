@@ -67,6 +67,9 @@ class MainEngine:
         self.brokerID = ''        # 经纪商代码
         self.MdIp = ''         # 行情服务器地址
         self.TdIp = ''         # 交易服务器地址
+        self.authCode = ''        # 授权码
+        self.appID = ''           # 软件代号
+        self.userProductInfo = '' # 产品信息
 
         # vn格式的委托数据
         self.orderDict = {}
@@ -95,7 +98,7 @@ class MainEngine:
     def login(self):
         """登陆"""
         self.md.connect(self.userID, self.password, self.brokerID, self.MdIp)
-        self.td.connect(self.userID, self.password, self.brokerID, self.TdIp)
+        self.td.connect(self.userID, self.password, self.brokerID, self.TdIp, self.appID, self.authCode, self.userProductInfo)
     # ----------------------------------------------------------------------
     def loadSetting(self):
         """载入设置"""
@@ -106,6 +109,9 @@ class MainEngine:
         self.brokerID = d['brokerID']        # 经纪商代码
         self.MdIp = d['MdIp']         # 行情服务器地址
         self.TdIp = d['TdIp']         # 交易服务器地址
+        self.authCode = d['authCode']      # 授权码
+        self.appID = d['appID']            # 软件代号
+        self.userProductInfo = d['userProductInfo']  # 产品信息
 
     # ----------------------------------------------------------------------
     def insertInstrument(self, event):

@@ -2,6 +2,9 @@
     "userID": "",
     "password": "",
     "brokerID": "9999",
-    "MdIp": "tcp://180.168.146.187:10011",
-    "TdIp": "tcp://180.168.146.187:10001"
+    "MdIp": "tcp://180.168.146.187:13040",
+    "TdIp": "tcp://180.168.146.187:13030",
+    "authCode":"0000000000000000",
+    "appID": "client_xxxx_1.0.1",
+    "userProductInfo":""
 }

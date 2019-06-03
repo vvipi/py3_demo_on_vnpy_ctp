@@ -1,6 +1,6 @@
 # encoding: UTF-8
 """
-CTP的底层接口来自VNPY,大佬bigtan帮助编译的python3版本
+从VNPY项目搬运新版穿透式监管ctpapi，验证登录部分代码做相应修改
 """
 from modules.vnctpmd import MdApi
 from modules.vnctptd import TdApi
@@ -210,16 +210,18 @@ class CtpMdApi(MdApi):
         tick.lowerLimit = data['LowerLimitPrice']
         
         # CTP只有一档行情
-        # 无报价时用涨跌停板价替换
-        if data['BidPrice1'] > tick.upperLimit:
-            tick.bidPrice1 = tick.lowerLimit
-        else:
-            tick.bidPrice1 = data['BidPrice1']
-        if data['AskPrice1'] > tick.upperLimit:
-            tick.askPrice1 = tick.upperLimit
-        else:
-            tick.askPrice1 = data['AskPrice1']
-            
+        # 无报价时用涨跌停板价替换,如果没有推送涨跌停价会出错，可以自行用一个很大的数字替代，或者就用推送的巨大数字
+        # if data['BidPrice1'] > tick.upperLimit:
+        #     tick.bidPrice1 = tick.lowerLimit
+        # else:
+        #     tick.bidPrice1 = data['BidPrice1']
+        # if data['AskPrice1'] > tick.upperLimit:
+        #     tick.askPrice1 = tick.upperLimit
+        # else:
+        #     tick.askPrice1 = data['AskPrice1']
+        tick.askPrice1 = data['AskPrice1']
+        tick.bidPrice1 = data['BidPrice1']
+
         tick.bidVolume1 = data['BidVolume1']
         tick.askVolume1 = data['AskVolume1']
         
@@ -254,7 +256,7 @@ class CtpMdApi(MdApi):
     def onRspUserLogin(self, data, error, n, last):
         """登陆回报"""
         # 如果登录成功，推送日志信息
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             self.loginStatus = True
             
             log = u'行情服务器登录完成'
@@ -273,7 +275,7 @@ class CtpMdApi(MdApi):
     def onRspUserLogout(self, data, error, n, last):
         """登出回报"""
         # 如果登出成功，推送日志信息
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             self.loginStatus = False
             self.gateway.mdConnected = False
             
@@ -320,7 +322,10 @@ class CtpTdApi(TdApi):
         self.password = ''        # 密码
         self.brokerID = ''        # 经纪商代码
         self.address = ''         # 服务器地址
-        
+        self.authCode = ''        # 授权码
+        self.appID = ''           # 软件代号
+        self.userProductInfo = '' # 产品信息
+
         self.frontID = 0            # 前置机编号
         self.sessionID = 0          # 会话编号
 
@@ -343,7 +348,7 @@ class CtpTdApi(TdApi):
         log = u'交易服务器连接成功'
         self.put_log_event(log)
     
-        self.login()
+        self.authenticate()
 
     #----------------------------------------------------------------------
     def onFrontDisconnected(self, n):
@@ -353,12 +358,23 @@ class CtpTdApi(TdApi):
     
         log = u'交易服务器连接断开'
         self.put_log_event(log)
+
+    #----------------------------------------------------------------------
+    def onRspAuthenticate(self, data, error, n, last):
+        """验证客户端回报"""
+        if not error or 0 == error['ErrorID']:
+            self.authStatus = True
+            log = u'授权码验证成功'
+            self.put_log_event(log)
+            self.login()
+        else:
+            self.put_log_event(u'授权码验证失败:{}'.format(error))
         
     #----------------------------------------------------------------------
     def onRspUserLogin(self, data, error, n, last):
         """登陆回报"""
         # 如果登录成功，推送日志信息
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             self.frontID = str(data['FrontID'])
             self.sessionID = str(data['SessionID'])
             self.loginStatus = True
@@ -382,7 +398,7 @@ class CtpTdApi(TdApi):
     def onRspUserLogout(self, data, error, n, last):
         """登出回报"""
         # 如果登出成功，推送日志信息
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             self.loginStatus = False
             
             log = u'交易服务器登出完成'
@@ -413,11 +429,26 @@ class CtpTdApi(TdApi):
             
             # 初始化连接，成功会调用onFrontConnected
             self.init()
-            
-        # 若已经连接但尚未登录，则进行登录
+
+        # 若已经连接但尚未验证/登录，则进行验证
         else:
-            if not self.loginStatus:
-                self.login()    
+            if not self.authStatus or not self.loginStatus:
+                self.authenticate()    
+    # ----------------------------------------------------------------------
+    def authenticate(self):
+        """申请验证"""
+        self.put_log_event(u'申请授权码验证')
+        if self.userID and self.brokerID and self.authCode:
+            req = {}
+            req['UserID'] = self.userID
+            req['BrokerID'] = self.brokerID
+            req['AuthCode'] = self.authCode
+            if len(self.userProductInfo) > 0:
+                req['UserProductInfo'] = self.userProductInfo
+            req['AppID'] = self.appID
+            self.reqID +=1
+            self.put_log_event(u'提交验证...')
+            self.reqAuthenticate(req, self.reqID)
     
     #----------------------------------------------------------------------
     def login(self):
@@ -445,13 +476,13 @@ class CtpTdApi(TdApi):
         req['BrokerID'] = self.brokerID
         req['InvestorID'] = self.userID
         self.reqQryInvestorPosition(req, self.reqID)
-        
+    #----------------------------------------------------------------------
     def qryInstrument(self):
         """查询合约"""
         self.reqID += 1
         req = {}
         self.reqQryInstrument(req, self.reqID)
-
+    #----------------------------------------------------------------------
     def qryMarketData(self):
         """查询合约截面数据"""
         self.reqID += 1
@@ -626,7 +657,7 @@ class CtpTdApi(TdApi):
         选择先储存在一个本地字典中，全部收集完毕后再推送到队列中
         （由于耗时过长目前使用其他进程读取）
         """
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             self.symbolExchangeDict[data['InstrumentID']] = data['ExchangeID'] # 合约代码和交易所的映射关系
             self.symbolSizeDict[data['InstrumentID']] = data['VolumeMultiple'] # 合约代码和合约乘数映射关系
             self.symbolNameDict[data['InstrumentID']] = data['InstrumentName'] # 合约代码和合约名称映射关系
@@ -650,7 +681,7 @@ class CtpTdApi(TdApi):
         """持仓查询回报"""
         if not data['InstrumentID']:
             return
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             # 读取交易所id|合约名称|方向|合约乘数
             ExchangeID = data['ExchangeID'] = self.symbolExchangeDict.get(data['InstrumentID'], EXCHANGE_UNKNOWN)
             data['InstrumentName'] = self.symbolNameDict.get(data['InstrumentID'], PRODUCT_UNKNOWN)
@@ -745,7 +776,7 @@ class CtpTdApi(TdApi):
     #----------------------------------------------------------------------
     def onRspQryTradingAccount(self, data, error, n, last):
         """资金账户查询回报"""
-        if error['ErrorID'] == 0:
+        if not error or 0 == error['ErrorID']:
             event = Event(type_=EVENT_ACCOUNT)
             event.dict_['data'] = data
             self.__eventEngine.put(event)
@@ -951,11 +982,6 @@ class CtpTdApi(TdApi):
         
     #----------------------------------------------------------------------
     def onHeartBeatWarning(self, n):
-        """"""
-        pass
-        
-    #----------------------------------------------------------------------
-    def onRspAuthenticate(self, data, error, n, last):
         """"""
         pass
         

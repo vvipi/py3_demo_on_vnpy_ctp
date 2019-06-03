@@ -1,4 +1,8 @@
 # py3_demo_on_vnpy_ctp
+####　更新：
+
+- 20190603 更新穿透式监管ctpapi
+
 ####　特点：
 
 - 基于vnpy的ctp接口的简化版本，实现查询功能的基础上增加了ctaEngine。适用于认为vnpy功能太多无法驾驭，只需要ctp和策略功能的新人（像我这样）。
@@ -9,11 +13,11 @@
 
 ####　运行环境：
 
-- 64位版本windows7或windows10，python3.6（推荐Anaconda3-4.4.0-Windows-x86_64）
+- 64位版本windows7或windows10，python3.7（Anaconda3-2019.03-Windows-x86_64测试可用）
 
-- 选择上述运行环境可以不需要自行编译ctpapi，项目中的ctpapi是在上述环境下编译完成的。
+- 项目中的ctpapi是从vnpy开源项目搬运过来的，选择上述运行环境可以不需要自行编译ctpapi。
 
-- linux环境需要自行编译ctpapi，推荐方法如下：
+- linux环境需要自行编译ctpapi，推荐方法如下（测评版linux编译方法作者尚未尝试，以后再更新）：
 http://www.wepin.online/blog/0015423531636106a227723e4d74f21b6febcdef77a493f000
 
 ####　使用方法：
