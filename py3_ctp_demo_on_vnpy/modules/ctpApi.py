@@ -148,7 +148,7 @@ class CtpMdApi(MdApi):
         """关闭"""
         self.exit()
         
-    def connect(self, userID, password, brokerID, address):
+    def connect(self, userID, password, brokerID, address, appID, authCode, userProductInfo=''):
         """初始化连接"""
         self.userID = userID                # 账号
         self.password = password            # 密码
@@ -317,7 +317,8 @@ class CtpTdApi(TdApi):
         
         self.connectionStatus = False       # 连接状态
         self.loginStatus = False            # 登录状态
-        
+        self.authStatus = False             # 验证状态
+
         self.userID = ''          # 账号
         self.password = ''        # 密码
         self.brokerID = ''        # 经纪商代码
@@ -415,7 +416,10 @@ class CtpTdApi(TdApi):
         self.password = password            # 密码
         self.brokerID = brokerID            # 经纪商代码
         self.address = address              # 服务器地址
-        
+        self.appID = appID                  # 软件代号
+        self.authCode = authCode            # 授权码
+        self.userProductInfo = userProductInfo # 产品信息
+		
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
