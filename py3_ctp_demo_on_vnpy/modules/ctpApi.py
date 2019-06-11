@@ -410,7 +410,7 @@ class CtpTdApi(TdApi):
             log = error['ErrorMsg']
             self.put_log_event(log)
     #----------------------------------------------------------------------
-    def connect(self, userID, password, brokerID, address):
+    def connect(self, userID, password, brokerID, address, appID, authCode, userProductInfo=''):
         """初始化连接"""
         self.userID = userID                # 账号
         self.password = password            # 密码
