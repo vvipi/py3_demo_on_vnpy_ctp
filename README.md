@@ -17,8 +17,8 @@
 
 - 项目中的ctpapi是从vnpy开源项目搬运过来的，选择上述运行环境可以不需要自行编译ctpapi。
 
-- linux环境需要自行编译ctpapi，推荐方法如下（测评版linux编译方法作者尚未尝试，以后再更新）：
-http://www.wepin.online/blog/0015423531636106a227723e4d74f21b6febcdef77a493f000
+- linux环境需要自行编译ctpapi，推荐方法如下：
+https://www.wepin.online/blog/0015640409375992273687df432443499ca0d69de612df9000
 
 ####　使用方法：
 

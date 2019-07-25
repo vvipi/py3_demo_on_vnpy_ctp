@@ -148,7 +148,7 @@ class CtpMdApi(MdApi):
         """关闭"""
         self.exit()
         
-    def connect(self, userID, password, brokerID, address, appID, authCode, userProductInfo=''):
+    def connect(self, userID, password, brokerID, address):
         """初始化连接"""
         self.userID = userID                # 账号
         self.password = password            # 密码
